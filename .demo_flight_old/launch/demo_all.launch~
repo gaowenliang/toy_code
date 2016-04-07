@@ -1,0 +1,15 @@
+<launch>
+
+	<node pkg="demo_flight" type="drone_ctrl" name="drone_ctrl" >
+	</node>
+
+	<node pkg="demo_flight" type="pid_ctrl_node" name="pid_ctrl_node" output="screen" >
+	</node>
+
+
+<node pkg="demo_flight" type="ekf_node" name="ekf_node" >
+	</node>
+
+
+
+</launch>

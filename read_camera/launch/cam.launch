@@ -1,0 +1,17 @@
+<launch>
+	<param name="height" value="480" />
+	<param name="width" value="640" />
+
+	<param name="exposure" value="0.2" />
+	<param name="brightness" value="0.5" />
+
+	<param name="rate" value="30" />
+
+	<param name="contrast" value="60" />
+	<param name="saturation" value="80" />
+	<param name="hue" value="8" />
+	<param name="gain" value="65" />
+
+	<node name="camera_reader" pkg="read_camera" type="camera_reader"/>	
+
+</launch>
