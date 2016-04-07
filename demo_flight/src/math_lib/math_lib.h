@@ -1,6 +1,0 @@
-#include "constants.h"
-#include "math_basic.h"
-#include "math_matrix.h"
-#include "math_quaternion.h"
-#include "math_rotation.h"
-#include "math_vector.h"
