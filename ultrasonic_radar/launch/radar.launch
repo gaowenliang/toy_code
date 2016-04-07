@@ -1,0 +1,9 @@
+<launch>
+	
+        <!-- ultrasonic parameters -->
+
+        <node name="serial_ACM0.py" pkg="ultrasonic_radar" type="serial_ACM0.py"/>
+
+        <node name="radar_node"     pkg="ultrasonic_radar" type="radar_node"/>
+
+</launch>
