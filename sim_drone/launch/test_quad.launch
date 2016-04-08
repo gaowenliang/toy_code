@@ -1,0 +1,12 @@
+<launch>
+
+  <!-- joy node -->
+  <node respawn="true" pkg="joy" type="joy_node" name="turtle_joy" output="screen">
+    <param name="dev" type="string" value="/dev/input/js0" />
+    <param name="deadzone" value="0.12" />
+  </node>
+
+  <node pkg="rviz" name="rviz" type="rviz"  args="-d $(find sim_drone)/test_obj.rviz"/>
+  <node pkg="sim_drone" name="sim_test_quad" type="sim_test_quad" output="screen">
+  </node>
+</launch>
