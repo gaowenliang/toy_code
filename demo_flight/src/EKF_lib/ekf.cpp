@@ -61,20 +61,23 @@ void EKF::setR(float _r)
 void EKF::predict(const VectorXd update_data, const float dt)
 {
     //TODO: for nonlinear model, the predict update maybe not above
-    P_pre = F_mat * P_post * F_mat.transpose() + Q_mat;
+
+    if(is_init == true)
+        P_pre = F_mat * P_post * F_mat.transpose() + G_mat*Q_mat*G_mat.transpose()*dt;
 }
 
 void EKF::measrue_update()
 {
+    if(is_init == true)
+    {
+        //P_pre = F_mat * P_post * F_mat.transpose() + G_mat * Q_mat * G_mat.transpose();
 
-    //P_pre = F_mat * P_post * F_mat.transpose() + G_mat * Q_mat * G_mat.transpose();
+        Kg = P_pre * H_mat.transpose() * (H_mat * P_pre * H_mat.transpose() + R_mat).inverse();
 
-    Kg = P_pre * H_mat.transpose() * (H_mat * P_pre * H_mat.transpose() + R_mat).inverse();
+        error_out =  Kg * error_in;
 
-    error_out =  Kg * error_in;
-
-    P_pre = (MatrixXd::Identity(Kg.rows(),H_mat.cols()) - Kg * H_mat) *P_pre;
-
+        P_pre = (MatrixXd::Identity(Kg.rows(),H_mat.cols()) - Kg * H_mat) *P_pre;
+    }
 }
 
 void EKF::correct()

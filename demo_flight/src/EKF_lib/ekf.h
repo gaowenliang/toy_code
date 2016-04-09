@@ -36,6 +36,9 @@ public:
     bool is_init;
 
     MatrixXd P_post;
+    MatrixXd F_mat;
+    MatrixXd G_mat;
+    MatrixXd H_mat;
 
     VectorXd error_in;
     VectorXd error_out;
@@ -44,12 +47,8 @@ private:
 
     MatrixXd P_pre;
 
-    MatrixXd F_mat;
     MatrixXd A_mat;
-    MatrixXd G_mat;
     MatrixXd Q_mat;
-
-    MatrixXd H_mat;
     MatrixXd R_mat;
     MatrixXd Kg;
 

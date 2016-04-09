@@ -35,6 +35,7 @@ Vector3d v_e, v_b, v_v_calc;
 Vector3d w_b;
 Quaterniond q_eb, q_ve, q_vb;
 Matrix3d R_ve;
+Matrix3d R_eb;
 
 static float dt;
 
@@ -128,17 +129,24 @@ void vicon_callback(const geometry_msgs::TransformStampedConstPtr& vicon)
 
     delta_q = q_bv_vicon * ekf->q_vb;
 
-    ekf->error_in(0) = -delta_q.x() /delta_q.w();
-    ekf->error_in(1) = -delta_q.y() /delta_q.w();
-    ekf->error_in(2) = -delta_q.z() /delta_q.w();
+    ekf->error_in.segment<3>(0) = -delta_q.vec();// /delta_q.w();
+    ekf->error_in.segment<3>(0+3) = p_v_vicon - ekf->p_v;
 
-    // position error
-    ekf->error_in(3) = p_v_vicon(0) - ekf->p_v(0);
-    ekf->error_in(4) = p_v_vicon(1) - ekf->p_v(1);
-    ekf->error_in(5) = p_v_vicon(2) - ekf->p_v(2);
+    if(ekf->is_init == false)
+    {
+        ekf->p_v = p_v_vicon;
+        ekf->q_vb = q_vb_vicon;
+        ekf->is_init = true;
+    }
+    else
+    {
+        ekf->H_mat<<
+                     Matrix3d::Identity(), Matrix3d::Zero(), Matrix3d::Zero(),
+                Matrix3d::Zero(), Matrix3d::Identity(), Matrix3d::Zero();
 
-    ekf->measrue_update();
-    ekf->correct();
+        ekf->measrue_update();
+        ekf->correct();
+    }
 }
 
 void imu_callback(const nav_msgs::OdometryConstPtr& imu)
@@ -158,21 +166,36 @@ void imu_callback(const nav_msgs::OdometryConstPtr& imu)
     w_b(2) = imu->twist.twist.angular.z;
 
 
-    // imu propagation
-    ekf->q_vb = q_ve*q_eb;
+    if(ekf->is_init == true)
+    {
+        // imu propagation
+        ekf->q_vb = q_ve*q_eb;
 
-    ekf->v_v = R_ve*(v_e - ekf->bias_v_b);
+        R_eb = q_eb.toRotationMatrix();
 
-    v_v_calc = 0.5f*( ekf->v_v + ekf->v_v_post);
+        ekf->v_v = R_ve*(v_e - R_eb* ekf->bias_v_b);
 
-    ekf->p_v = ekf->p_v + v_v_calc* dt;
+        v_v_calc = 0.5f*( ekf->v_v + ekf->v_v_post);
 
-    ekf->v_v_post = ekf->v_v;
+        ekf->p_v = ekf->p_v + v_v_calc* dt;
 
-    // ekf predict
-    ekf->predict(w_b, dt);
+        ekf->v_v_post = ekf->v_v;
 
-    get_target_pose(stick_status, flight_status);
+        // ekf predict
+        ekf->F_mat<<
+                     -crossMat(w_b),   Matrix3d::Zero(), Matrix3d::Zero(),
+                Matrix3d::Zero(), Matrix3d::Zero(), -R_ve,
+                Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Zero();
+
+        ekf->G_mat<<
+                     Matrix3d::Identity(), Matrix3d::Zero(), Matrix3d::Zero(),
+                Matrix3d::Zero(),     -R_ve,            Matrix3d::Zero(),
+                Matrix3d::Zero(),     Matrix3d::Zero(), Matrix3d::Identity();
+
+        ekf->predict(w_b, dt);
+
+        get_target_pose(stick_status, flight_status);
+    }
 
     demo_flight::ekf_data ekf_data_out;
 
@@ -213,7 +236,7 @@ void stick_callback(const demo_flight::stick_dataConstPtr& stick)
     else
         stick_status = 0;
 
-   cout<<"receive stick status"<<endl;
+    cout<<"receive stick status"<<endl;
 }
 
 void status_callback(const std_msgs::UInt8ConstPtr&  status)
@@ -229,14 +252,15 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "vicon_ekf");
     ros::NodeHandle nh;
 
+    //TODO: what is q_ve?
     R_ve = q_ve.toRotationMatrix();
 
     ekf = new EKF(9,6,0.1,0.1);
 
     stick_sub = nh.subscribe("/stick_data",10,stick_callback);
     status_sub = nh.subscribe("/dji_sdk/flight_status",10,status_callback);
-    vicon_sub = nh.subscribe("/vicon/M100_1/M100_1",10,vicon_callback);
 
+    vicon_sub = nh.subscribe("/vicon/M100_1/M100_1",10,vicon_callback);
     imu_sub = nh.subscribe("/dji_sdk/odometry",10,imu_callback);
 
     ekf_pub = nh.advertise<demo_flight::ekf_data>("/ekf_state",10);
