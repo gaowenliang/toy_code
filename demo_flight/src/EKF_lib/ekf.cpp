@@ -10,8 +10,8 @@ EKF::EKF(int _n, int _m, float _q, float _r)
 
 void EKF::init_filter(int _n, int _m)
 {
-    n=_n;
-    m=_m;
+    n = _n;
+    m = _m;
 
     x = VectorXd::Zero(n+1+3);
 
@@ -22,6 +22,7 @@ void EKF::init_filter(int _n, int _m)
     P_post = MatrixXd::Identity(n,n);
 
     F_mat = MatrixXd::Identity(n,n);
+    Phi_mat = MatrixXd::Identity(n,n);
     A_mat = MatrixXd::Zero(n,n);
     //TODO: G and Q maybe not such size
     Q_mat = MatrixXd::Identity(n,n);
@@ -47,13 +48,15 @@ void EKF::setR(MatrixXd _R)
 void EKF::setQ(float _q)
 {
     Q_mat = MatrixXd::Identity(n,n);
-    Q_mat = Q_mat*_q;
+
+    Q_mat = Q_mat* _q;
 }
 
 void EKF::setR(float _r)
 {
     R_mat = MatrixXd::Identity(m,m);
-    R_mat = R_mat*_r;
+
+    R_mat = R_mat* _r;
 }
 
 const Quaterniond EKF::get_orientation_q_vb()
@@ -61,12 +64,12 @@ const Quaterniond EKF::get_orientation_q_vb()
     return Quaterniond( x.segment<4>(0) );
 }
 
-const Vector3d EKF::get_bias_v()
+const Vector3d EKF::get_position_v()
 {
     return Vector3d( x.segment<3>(0+4) );
 }
 
-const Vector3d EKF::get_position_v()
+const Vector3d EKF::get_bias_v()
 {
     return Vector3d( x.segment<3>(0+4+3) );
 }
@@ -79,8 +82,9 @@ const Vector3d EKF::get_velocity_v()
 void EKF::init_ekf_state(Quaterniond q_vb_init, Vector3d p_v_init)
 {
     x.segment<4>(0) = q_vb_init.coeffs();
-    x.segment<3>(0+4) = Vector3d::Zero();
-    x.segment<3>(0+4+3) = p_v_init;
+    x.segment<3>(0+4) = p_v_init;
+    x.segment<3>(0+4+3) =  Vector3d::Zero();
+    x.segment<3>(0+4+3+3) =  Vector3d::Zero();
 
     is_init = true;
 }
@@ -99,26 +103,28 @@ void EKF::predict(const Quaterniond q_eb, const Vector3d w_b, const Vector3d v_e
         //TODO: here may be not vary true???
         // q_vb
         x.segment<4>(0) = (q_ve*q_eb).coeffs();
-        // bias_v_b
-        //x.segment<3>(0+4) = this->get_bias_v();
         // p_v
-        x.segment<3>(0+4+3) += v_v_calc* dt;
+        x.segment<3>(0+4) += v_v_calc* dt;
+        // bias_v_b
+        x.segment<3>(0+4+3) = this->get_bias_v();
         // v_v
-        x.segment<3>(0+4+3+3) += v_v;
+        x.segment<3>(0+4+3+3) = v_v;
 
 
         F_mat<<
-                  -crossMat(w_b), Matrix3d::Zero(), Matrix3d::Zero(),
-                Matrix3d::Zero(), Matrix3d::Zero(),            -R_ve,
-                Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Zero();
+                             -crossMat(w_b), Matrix3d::Zero(), Matrix3d::Zero(),
+                R_eb*crossMat(get_bias_v()), Matrix3d::Zero(),       -R_ve*R_eb,
+                           Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Zero();
 
         G_mat<<
-                Matrix3d::Identity(), Matrix3d::Zero(),     Matrix3d::Zero(),
-                    Matrix3d::Zero(),            -R_ve,     Matrix3d::Zero(),
-                    Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Identity();
+                -Matrix3d::Identity(), Matrix3d::Zero(),     Matrix3d::Zero(),
+                     Matrix3d::Zero(),            -R_ve,           -R_ve*R_eb,
+                     Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Identity();
+
+        Phi_mat = MatrixXd::Identity(n,n) + F_mat*dt;
 
         //TODO: for nonlinear model, the predict update maybe not above
-        P_pre = F_mat * P_post * F_mat.transpose() + G_mat*Q_mat*G_mat.transpose()*dt;
+        P_pre = Phi_mat * P_post * Phi_mat.transpose() + G_mat*Q_mat*G_mat.transpose()*dt;
     }
 }
 
@@ -135,10 +141,8 @@ void EKF::measrue_update(const Quaterniond q_vb_meas, const Vector3d p_v_meas)
         error_in.segment<3>(0+3) = p_v_meas - this->get_position_v();
 
         H_mat<<
-                     Matrix3d::Identity(), Matrix3d::Zero(), Matrix3d::Zero(),
-                Matrix3d::Zero(), Matrix3d::Identity(), Matrix3d::Zero();
-
-        //P_pre = F_mat * P_post * F_mat.transpose() + G_mat * Q_mat * G_mat.transpose();
+                Matrix3d::Identity(),     Matrix3d::Zero(), Matrix3d::Zero(),
+                    Matrix3d::Zero(), Matrix3d::Identity(), Matrix3d::Zero();
 
         Kg = P_pre * H_mat.transpose() * (H_mat * P_pre * H_mat.transpose() + R_mat).inverse();
 
@@ -151,14 +155,14 @@ void EKF::measrue_update(const Quaterniond q_vb_meas, const Vector3d p_v_meas)
 void EKF::correct()
 {
     Vector3d delta_theta(  error_out.segment<3>(0) );
-    Vector3d delta_bias_v( error_out.segment<3>(0+3) );
-    Vector3d delta_p_v(    error_out.segment<3>(0+3+3) );
+    Vector3d delta_p_v(    error_out.segment<3>(0+3) );
+    Vector3d delta_bias_v( error_out.segment<3>(0+3+3) );
 
     Quaterniond q_vb = this->get_orientation_q_vb();
     quaternion_correct(q_vb, delta_theta);
 
     x.segment<4>(0) = q_vb.coeffs();
-    x.segment<3>(0+4) += delta_bias_v;
-    x.segment<3>(0+4+3) += delta_p_v;
+    x.segment<3>(0+4) += delta_p_v;
+    x.segment<3>(0+4+3) += delta_bias_v;
 
 }

@@ -8,12 +8,18 @@
 using namespace std;
 using namespace Eigen;
 
+typedef struct
+{
+    double time_stamp;
+    VectorXd x;
+}state;
+
 class EKF
 {
 public:
     EKF(int _n, int _m, float _q, float _r);
 
-    // q_vb | bias_v_b | p_v | v_v |
+    // q_vb | p_v | bias_v_b | v_v |
     VectorXd x;
 
     Matrix3d R_ve;
@@ -44,6 +50,7 @@ public:
 
     MatrixXd P_post;
     MatrixXd F_mat;
+    MatrixXd Phi_mat;
     MatrixXd G_mat;
     MatrixXd H_mat;
 

@@ -7,7 +7,7 @@ set( CMAKE_CXX_FLAGS "-std=c++11 -Wall -O2 -march=native" )
 
 list( APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules )
 
-find_package( G2O REQUIRED )
+#find_package( G2O REQUIRED )
 find_package( OpenCV REQUIRED )
 find_package( Eigen3 REQUIRED )
 find_package( Cholmod )
