@@ -13,10 +13,11 @@ class EKF
 public:
     EKF(int _n, int _m, float _q, float _r);
 
-    Quaterniond q_vb;
-    Vector3d p_v;
-    Vector3d v_v, v_v_post;
-    Vector3d bias_v_b;
+    // q_vb | bias_v_b | p_v | v_v |
+    VectorXd x;
+
+    Matrix3d R_ve;
+    Quaterniond q_ve;
 
     void init_filter(int _n, int _m);
 
@@ -26,9 +27,15 @@ public:
     void setQ(float _Q);
     void setR(float _R);
 
-    void predict(const VectorXd update_data, const float dt);
-    void measrue_update();
+    void init_ekf_state(Quaterniond q_vb_init, Vector3d p_v_init);
+    void predict(const Quaterniond q_eb, const Vector3d w_b, const Vector3d v_e, const float dt);
+    void measrue_update(const Quaterniond q_vb_meas,const Vector3d p_v_meas);
     void correct();
+
+    const Quaterniond get_orientation_q_vb();
+    const Vector3d get_bias_v();
+    const Vector3d get_velocity_v();
+    const Vector3d get_position_v();
 
     int n;  //number of state
     int m;  //number of measurement

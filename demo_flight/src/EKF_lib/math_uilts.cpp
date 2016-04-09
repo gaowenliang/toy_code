@@ -27,9 +27,9 @@ Quaterniond quaternion_correct(Quaterniond q, Vector3d d_theta)
 {
     Quaterniond dq(
                    1,
-                   0.5* d_theta(0),
-                   0.5* d_theta(1),
-                   0.5* d_theta(2)
+                   0.5f* d_theta(0),
+                   0.5f* d_theta(1),
+                   0.5f* d_theta(2)
                    );
     dq.w() = 1 - dq.vec().transpose() * dq.vec();
     q = (q * dq).normalized();

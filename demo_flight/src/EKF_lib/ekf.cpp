@@ -13,7 +13,10 @@ void EKF::init_filter(int _n, int _m)
     n=_n;
     m=_m;
 
+    x = VectorXd::Zero(n+1+3);
+
     error_in = VectorXd::Zero(m);
+    error_out = VectorXd::Zero(n);
 
     P_pre = MatrixXd::Identity(n,n);
     P_post = MatrixXd::Identity(n,n);
@@ -27,11 +30,6 @@ void EKF::init_filter(int _n, int _m)
     H_mat = MatrixXd::Zero(m,n);
     R_mat = MatrixXd::Identity(m,m);
     Kg = MatrixXd::Zero(n,m);
-
-    q_vb.setIdentity();
-    p_v.setZero();
-    v_v.setZero();
-    v_v_post.setZero();
 
     is_init = false;
 }
@@ -58,18 +56,88 @@ void EKF::setR(float _r)
     R_mat = R_mat*_r;
 }
 
-void EKF::predict(const VectorXd update_data, const float dt)
+const Quaterniond EKF::get_orientation_q_vb()
 {
-    //TODO: for nonlinear model, the predict update maybe not above
-
-    if(is_init == true)
-        P_pre = F_mat * P_post * F_mat.transpose() + G_mat*Q_mat*G_mat.transpose()*dt;
+    return Quaterniond( x.segment<4>(0) );
 }
 
-void EKF::measrue_update()
+const Vector3d EKF::get_bias_v()
+{
+    return Vector3d( x.segment<3>(0+4) );
+}
+
+const Vector3d EKF::get_position_v()
+{
+    return Vector3d( x.segment<3>(0+4+3) );
+}
+
+const Vector3d EKF::get_velocity_v()
+{
+    return Vector3d( x.segment<3>(0+4+3+3) );
+}
+
+void EKF::init_ekf_state(Quaterniond q_vb_init, Vector3d p_v_init)
+{
+    x.segment<4>(0) = q_vb_init.coeffs();
+    x.segment<3>(0+4) = Vector3d::Zero();
+    x.segment<3>(0+4+3) = p_v_init;
+
+    is_init = true;
+}
+
+void EKF::predict(const Quaterniond q_eb, const Vector3d w_b, const Vector3d v_e, const float dt)
 {
     if(is_init == true)
     {
+        Matrix3d R_eb = q_eb.toRotationMatrix();
+
+        Vector3d v_v_post = this->get_velocity_v();
+        Vector3d v_v = R_ve*(v_e - R_eb* this->get_bias_v());
+
+        Vector3d v_v_calc = 0.5f*( v_v + v_v_post);
+
+        //TODO: here may be not vary true???
+        // q_vb
+        x.segment<4>(0) = (q_ve*q_eb).coeffs();
+        // bias_v_b
+        //x.segment<3>(0+4) = this->get_bias_v();
+        // p_v
+        x.segment<3>(0+4+3) += v_v_calc* dt;
+        // v_v
+        x.segment<3>(0+4+3+3) += v_v;
+
+
+        F_mat<<
+                  -crossMat(w_b), Matrix3d::Zero(), Matrix3d::Zero(),
+                Matrix3d::Zero(), Matrix3d::Zero(),            -R_ve,
+                Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Zero();
+
+        G_mat<<
+                Matrix3d::Identity(), Matrix3d::Zero(),     Matrix3d::Zero(),
+                    Matrix3d::Zero(),            -R_ve,     Matrix3d::Zero(),
+                    Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Identity();
+
+        //TODO: for nonlinear model, the predict update maybe not above
+        P_pre = F_mat * P_post * F_mat.transpose() + G_mat*Q_mat*G_mat.transpose()*dt;
+    }
+}
+
+void EKF::measrue_update(const Quaterniond q_vb_meas, const Vector3d p_v_meas)
+{
+    if(is_init == true)
+    {
+
+        // orietation error
+        Quaterniond q_bv_meas = q_vb_meas.conjugate();
+        Quaterniond delta_q = q_bv_meas * this->get_orientation_q_vb();
+
+        error_in.segment<3>(0) = -delta_q.vec();// /delta_q.w();
+        error_in.segment<3>(0+3) = p_v_meas - this->get_position_v();
+
+        H_mat<<
+                     Matrix3d::Identity(), Matrix3d::Zero(), Matrix3d::Zero(),
+                Matrix3d::Zero(), Matrix3d::Identity(), Matrix3d::Zero();
+
         //P_pre = F_mat * P_post * F_mat.transpose() + G_mat * Q_mat * G_mat.transpose();
 
         Kg = P_pre * H_mat.transpose() * (H_mat * P_pre * H_mat.transpose() + R_mat).inverse();
@@ -86,8 +154,11 @@ void EKF::correct()
     Vector3d delta_bias_v( error_out.segment<3>(0+3) );
     Vector3d delta_p_v(    error_out.segment<3>(0+3+3) );
 
+    Quaterniond q_vb = this->get_orientation_q_vb();
     quaternion_correct(q_vb, delta_theta);
-    bias_v_b += delta_bias_v;
-    p_v += delta_p_v;
+
+    x.segment<4>(0) = q_vb.coeffs();
+    x.segment<3>(0+4) += delta_bias_v;
+    x.segment<3>(0+4+3) += delta_p_v;
 
 }

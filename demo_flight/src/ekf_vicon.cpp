@@ -31,11 +31,8 @@ ros::Subscriber vicon_sub;
 
 EKF* ekf;
 
-Vector3d v_e, v_b, v_v_calc;
-Vector3d w_b;
-Quaterniond q_eb, q_ve, q_vb;
+Quaterniond  q_ve;
 Matrix3d R_ve;
-Matrix3d R_eb;
 
 static float dt;
 
@@ -111,108 +108,71 @@ void get_target_pose(int stick, int state_flight)
 
 void vicon_callback(const geometry_msgs::TransformStampedConstPtr& vicon)
 {
-    Quaterniond q_vb_vicon, q_bv_vicon, delta_q;
-    Vector3d p_v_vicon;
-
     //ROS_INFO("GET vicon MSG");
+     Quaterniond q_vb_vicon;
     q_vb_vicon.w() = vicon->transform.rotation.w;
     q_vb_vicon.x() = vicon->transform.rotation.x;
     q_vb_vicon.y() = vicon->transform.rotation.y;
     q_vb_vicon.z() = vicon->transform.rotation.z;
 
+    Vector3d p_v_vicon;
     p_v_vicon(0) = vicon->transform.translation.x;
     p_v_vicon(1) = vicon->transform.translation.y;
     p_v_vicon(2) = vicon->transform.translation.z;
 
-    // orietation error
-    q_bv_vicon = q_vb_vicon.conjugate();
-
-    delta_q = q_bv_vicon * ekf->q_vb;
-
-    ekf->error_in.segment<3>(0) = -delta_q.vec();// /delta_q.w();
-    ekf->error_in.segment<3>(0+3) = p_v_vicon - ekf->p_v;
-
     if(ekf->is_init == false)
     {
-        ekf->p_v = p_v_vicon;
-        ekf->q_vb = q_vb_vicon;
-        ekf->is_init = true;
+        ekf->init_ekf_state(q_vb_vicon, p_v_vicon);
     }
-    else
-    {
-        ekf->H_mat<<
-                     Matrix3d::Identity(), Matrix3d::Zero(), Matrix3d::Zero(),
-                Matrix3d::Zero(), Matrix3d::Identity(), Matrix3d::Zero();
 
-        ekf->measrue_update();
-        ekf->correct();
-    }
+    ekf->measrue_update(q_vb_vicon, p_v_vicon);
+    ekf->correct();
 }
 
 void imu_callback(const nav_msgs::OdometryConstPtr& imu)
 {
     //ROS_INFO("GET imu MSG");
+    Quaterniond q_eb;
     q_eb.w() = imu->pose.pose.orientation.w;
     q_eb.x() = imu->pose.pose.orientation.x;
     q_eb.y() = imu->pose.pose.orientation.y;
     q_eb.z() = imu->pose.pose.orientation.z;
 
+    Vector3d v_e;
     v_e(0) = imu->twist.twist.linear.x;
     v_e(1) = imu->twist.twist.linear.y;
     v_e(2) = imu->twist.twist.linear.z;
 
+    Vector3d w_b;
     w_b(0) = imu->twist.twist.angular.x;
     w_b(1) = imu->twist.twist.angular.y;
     w_b(2) = imu->twist.twist.angular.z;
 
+    // imu propagation
+    // ekf predict
+    ekf->predict(q_eb, w_b, v_e, dt);
 
-    if(ekf->is_init == true)
-    {
-        // imu propagation
-        ekf->q_vb = q_ve*q_eb;
-
-        R_eb = q_eb.toRotationMatrix();
-
-        ekf->v_v = R_ve*(v_e - R_eb* ekf->bias_v_b);
-
-        v_v_calc = 0.5f*( ekf->v_v + ekf->v_v_post);
-
-        ekf->p_v = ekf->p_v + v_v_calc* dt;
-
-        ekf->v_v_post = ekf->v_v;
-
-        // ekf predict
-        ekf->F_mat<<
-                     -crossMat(w_b),   Matrix3d::Zero(), Matrix3d::Zero(),
-                Matrix3d::Zero(), Matrix3d::Zero(), -R_ve,
-                Matrix3d::Zero(), Matrix3d::Zero(), Matrix3d::Zero();
-
-        ekf->G_mat<<
-                     Matrix3d::Identity(), Matrix3d::Zero(), Matrix3d::Zero(),
-                Matrix3d::Zero(),     -R_ve,            Matrix3d::Zero(),
-                Matrix3d::Zero(),     Matrix3d::Zero(), Matrix3d::Identity();
-
-        ekf->predict(w_b, dt);
-
-        get_target_pose(stick_status, flight_status);
-    }
+    get_target_pose(stick_status, flight_status);
 
     demo_flight::ekf_data ekf_data_out;
 
     ekf_data_out.header = imu->header;
 
-    ekf_data_out.position_v.x = ekf->p_v(0);
-    ekf_data_out.position_v.y = ekf->p_v(1);
-    ekf_data_out.position_v.z = ekf->p_v(2);
+    Vector3d p_v = ekf->get_position_v();
+    ekf_data_out.position_v.x = p_v(0);
+    ekf_data_out.position_v.y = p_v(1);
+    ekf_data_out.position_v.z = p_v(2);
 
-    ekf_data_out.q_vb.w = ekf->q_vb.w();
-    ekf_data_out.q_vb.x = ekf->q_vb.x();
-    ekf_data_out.q_vb.y = ekf->q_vb.y();
-    ekf_data_out.q_vb.z = ekf->q_vb.z();
+    Quaterniond q_vb = ekf->get_orientation_q_vb();
+    ekf_data_out.q_vb.w = q_vb.w();
+    ekf_data_out.q_vb.x = q_vb.x();
+    ekf_data_out.q_vb.y = q_vb.y();
+    ekf_data_out.q_vb.z = q_vb.z();
 
-    ekf_data_out.velocity_v.x = ekf->v_v(0);
-    ekf_data_out.velocity_v.y = ekf->v_v(1);
-    ekf_data_out.velocity_v.z = ekf->v_v(2);
+    Vector3d v_v = ekf->get_velocity_v();
+    ekf_data_out.velocity_v.x = v_v(0);
+    ekf_data_out.velocity_v.y = v_v(1);
+    ekf_data_out.velocity_v.z = v_v(2);
 
     ekf_data_out.position_errore_b.x = p_error_b(0);
     ekf_data_out.position_errore_b.y = p_error_b(1);
