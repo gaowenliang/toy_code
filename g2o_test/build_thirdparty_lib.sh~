@@ -1,0 +1,3 @@
+echo "Configuring and building Third party library:"
+echo "Start......"
+echo "ArUco first."

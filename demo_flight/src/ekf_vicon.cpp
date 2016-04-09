@@ -231,7 +231,7 @@ int main(int argc, char** argv)
 
     R_ve = q_ve.toRotationMatrix();
 
-    ekf = new EKF(9,6);
+    ekf = new EKF(9,6,0.1,0.1);
 
     stick_sub = nh.subscribe("/stick_data",10,stick_callback);
     status_sub = nh.subscribe("/dji_sdk/flight_status",10,status_callback);

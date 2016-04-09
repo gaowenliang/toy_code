@@ -11,7 +11,7 @@ using namespace Eigen;
 class EKF
 {
 public:
-    EKF(int _n, int _m);
+    EKF(int _n, int _m, float _q, float _r);
 
     Quaterniond q_vb;
     Vector3d p_v;
@@ -20,8 +20,8 @@ public:
 
     void init_filter(int _n, int _m);
 
-    void setQ(MatrixXf _Q);
-    void setR(MatrixXf _R);
+    void setQ(MatrixXd _Q);
+    void setR(MatrixXd _R);
 
     void setQ(float _Q);
     void setR(float _R);
@@ -35,22 +35,22 @@ public:
 
     bool is_init;
 
-    MatrixXf P_post;
+    MatrixXd P_post;
 
-    VectorXf error_in;
-    VectorXf error_out;
+    VectorXd error_in;
+    VectorXd error_out;
 
 private:
 
-    MatrixXf P_pre;
+    MatrixXd P_pre;
 
-    MatrixXf F_mat;
-    MatrixXf A_mat;
-    MatrixXf G_mat;
-    MatrixXf Q_mat;
+    MatrixXd F_mat;
+    MatrixXd A_mat;
+    MatrixXd G_mat;
+    MatrixXd Q_mat;
 
-    MatrixXf H_mat;
-    MatrixXf R_mat;
-    MatrixXf Kg;
+    MatrixXd H_mat;
+    MatrixXd R_mat;
+    MatrixXd Kg;
 
 };
