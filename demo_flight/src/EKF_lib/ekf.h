@@ -25,8 +25,6 @@ public:
     Matrix3d R_ve;
     Quaterniond q_ve;
 
-    void init_filter(int _n, int _m);
-
     void setQ(MatrixXd _Q);
     void setR(MatrixXd _R);
 
@@ -43,27 +41,28 @@ public:
     const Vector3d get_velocity_v();
     const Vector3d get_position_v();
 
+    bool is_init;
+
+private:
+
     int n;  //number of state
     int m;  //number of measurement
 
-    bool is_init;
+    void init_filter(int _n, int _m);
 
-    MatrixXd P_post;
     MatrixXd F_mat;
     MatrixXd Phi_mat;
     MatrixXd G_mat;
     MatrixXd H_mat;
 
-    VectorXd error_in;
-    VectorXd error_out;
-
-private:
-
-    MatrixXd P_pre;
+    MatrixXd P_mat;
 
     MatrixXd A_mat;
     MatrixXd Q_mat;
     MatrixXd R_mat;
     MatrixXd Kg;
+
+    VectorXd error_in;
+    VectorXd error_out;
 
 };
