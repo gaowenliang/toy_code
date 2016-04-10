@@ -24,7 +24,7 @@ file(GLOB MY_PID_LIB_SOURCES ${PROJECT_SOURCE_DIR}/src/PID_lib/*.cpp)
 include_directories("${PROJECT_SOURCE_DIR}/src/PID_lib")
 
 ## find EKF lib
-file(GLOB MY_EKF_LIB_SOURCES ${PROJECT_SOURCE_DIR}/src/EKF_lib/*.cpp)
+file(GLOB MY_EKF_LIB_SOURCES ${PROJECT_SOURCE_DIR}/src/estimate_lib/*.cpp)
 include_directories("${PROJECT_SOURCE_DIR}/src/EKF_lib")
 
 ## find Yu Yun math library
