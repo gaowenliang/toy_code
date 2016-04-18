@@ -65,7 +65,7 @@ void EKF::setR(float _r)
     R_mat = R_mat* _r;
 }
 
-void EKF::predict(VectorXd state,const VectorXd imu, const float dt)
+void EKF::predict(VectorXd& state,const VectorXd& imu, const float dt)
 {
     f_func(F_mat, G_mat, state, imu, dt);
 
@@ -76,7 +76,7 @@ void EKF::predict(VectorXd state,const VectorXd imu, const float dt)
 
 }
 
-void EKF::update(const VectorXd state,const VectorXd vicon)
+void EKF::update(const VectorXd& state,const VectorXd& vicon)
 {
     h_func(H_mat, error_in, state, vicon);
 
@@ -87,7 +87,7 @@ void EKF::update(const VectorXd state,const VectorXd vicon)
     P_mat = (MatrixXd::Identity(Kg.rows(),H_mat.cols()) - Kg * H_mat) *P_mat;
 }
 
-void EKF::correct(VectorXd state)
+void EKF::correct(VectorXd& state)
 {
     c_func(error_out,state);
 }

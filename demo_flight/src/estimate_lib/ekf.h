@@ -26,9 +26,9 @@ public:
     void setQ(float _Q);
     void setR(float _R);
 
-    void predict(VectorXd state, const VectorXd imu, const float dt);
-    void update(const VectorXd state, const VectorXd vicon);
-    void correct(VectorXd state);
+    void predict(VectorXd& state, const VectorXd& imu, const float dt);
+    void update(const VectorXd& state, const VectorXd& vicon);
+    void correct(VectorXd& state);
 
 private:
 

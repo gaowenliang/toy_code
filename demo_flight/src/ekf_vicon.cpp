@@ -237,9 +237,9 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
 
     //TODO: what is q_ve?
-    R_ve<< -1 , 0 , 0,
-            0 , 1 , 0,
-            0 , 0 , -1;
+    R_ve<<  0 ,-1 , 0,
+           -1 , 0 , 0,
+            0 , 0 ,-1;
     q_ve = Quaterniond(R_ve);
 
 
